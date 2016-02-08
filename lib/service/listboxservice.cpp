@@ -78,9 +78,9 @@ void eListboxServiceContent::setRoot(const eServiceReference &root, bool justSet
 	ASSERT(m_service_center);
 
 	if (m_service_center->list(m_root, m_lst))
-		eDebug("[eListboxServiceContent] no list available!");
+		eDebug("no list available!");
 	else if (m_lst->getContent(m_list))
-		eDebug("[eListboxServiceContent] getContent failed");
+		eDebug("getContent failed");
 
 	FillFinished();
 }
@@ -312,7 +312,7 @@ void eListboxServiceContent::sort()
 DEFINE_REF(eListboxServiceContent);
 
 eListboxServiceContent::eListboxServiceContent()
-	:m_visual_mode(visModeSimple), m_size(0), m_current_marked(false), m_itemheight(25), m_servicetype_icon_mode(0), m_crypto_icon_mode(0), m_column_width(0), m_progressbar_height(6), m_progressbar_border_width(2), m_record_indicator_mode(0), m_nonplayable_margins(10), m_items_distances(8)
+	:m_visual_mode(visModeSimple), m_size(0), m_current_marked(false), m_itemheight(25), m_service_picon_downsize(0), m_servicetype_icon_mode(0), m_crypto_icon_mode(0), m_column_width(0), m_progressbar_height(6), m_progressbar_border_width(2), m_record_indicator_mode(0), m_nonplayable_margins(10), m_items_distances(8)
 {
 	memset(m_color_set, 0, sizeof(m_color_set));
 	cursorHome();
@@ -406,26 +406,26 @@ int eListboxServiceContent::setCurrentMarked(bool state)
 			{
 				ePtr<iMutableServiceList> list;
 				if (m_lst->startEdit(list))
-					eDebug("[eListboxServiceContent] no editable list");
+					eDebug("no editable list");
 				else
 				{
 					eServiceReference ref;
 					getCurrent(ref);
 					if(!ref)
-						eDebug("[eListboxServiceContent] no valid service selected");
+						eDebug("no valid service selected");
 					else
 					{
 						int pos = cursorGet();
-						eDebugNoNewLineStart("[eListboxServiceContent] move %s to %d ", ref.toString().c_str(), pos);
+						eDebugNoNewLineStart("move %s to %d ", ref.toString().c_str(), pos);
 						if (list->moveService(ref, cursorGet()))
-							eDebugNoNewLine("failed\n");
+							eDebugNoNewLineEnd("failed");
 						else
-							eDebugNoNewLine("ok\n");
+							eDebugNoNewLineEnd("ok");
 					}
 				}
 			}
 			else
-				eDebug("[eListboxServiceContent] no list available!");
+				eDebug("no list available!");
 		}
 	}
 
@@ -582,31 +582,23 @@ void eListboxServiceContent::setItemHeight(int height)
 		m_listbox->setItemHeight(height);
 }
 
-bool eListboxServiceContent::checkServiceIsRecorded(eServiceReference ref)
+bool eListboxServiceContent::checkServiceIsRecorded(eServiceReference ref,pNavigation::RecordType type)
 {
 	std::map<ePtr<iRecordableService>, eServiceReference, std::less<iRecordableService*> > recordedServices;
-	recordedServices = eNavigation::getInstance()->getRecordingsServices();
+	recordedServices = eNavigation::getInstance()->getRecordingsServices(type);
 	for (std::map<ePtr<iRecordableService>, eServiceReference >::iterator it = recordedServices.begin(); it != recordedServices.end(); ++it)
 	{
 		if (ref.flags & eServiceReference::isGroup)
 		{
 			ePtr<iDVBChannelList> db;
 			ePtr<eDVBResourceManager> res;
-			if (eDVBResourceManager::getInstance(res) == -1)
-			{
-				return false;
-			}
-			if (res->getChannelList(db) < 0)
-			{
-				return false;
-			}
-			eBouquet *bouquet = NULL;
-			if (!db->getBouquet(ref, bouquet))
-			{
-				for (std::list<eServiceReference>::iterator i(bouquet->m_services.begin()); i != bouquet->m_services.end(); ++i)
-					if (*i == it->second)
-						return true;
-			}
+			eDVBResourceManager::getInstance(res);
+			res->getChannelList(db);
+			eBouquet *bouquet=0;
+			db->getBouquet(ref, bouquet);
+			for (std::list<eServiceReference>::iterator i(bouquet->m_services.begin()); i != bouquet->m_services.end(); ++i)
+				if (*i == it->second)
+					return true;
 		}
 		else if (ref == it->second)
 			return true;
@@ -700,7 +692,9 @@ void eListboxServiceContent::paint(gPainter &painter, eWindowStyle &style, const
 		eServiceReference ref = *m_cursor;
 		bool isMarker = ref.flags & eServiceReference::isMarker;
 		bool isPlayable = !(ref.flags & eServiceReference::isDirectory || isMarker);
-		bool isRecorded = m_record_indicator_mode && isPlayable && checkServiceIsRecorded(ref);
+		bool isRecorded = m_record_indicator_mode && isPlayable && checkServiceIsRecorded(ref,pNavigation::RecordType(pNavigation::isRealRecording|pNavigation::isUnknownRecording));
+		bool isStreamed = m_record_indicator_mode && isPlayable && checkServiceIsRecorded(ref,pNavigation::isStreaming);
+		bool isPseudoRecorded = m_record_indicator_mode && isPlayable && checkServiceIsRecorded(ref,pNavigation::isPseudoRecording);
 		ePtr<eServiceEvent> evt;
 		bool serviceAvail = true;
 		bool serviceFallback = false;
@@ -727,6 +721,20 @@ void eListboxServiceContent::paint(gPainter &painter, eWindowStyle &style, const
 					serviceFallback = true;
 				}
 			}
+		}
+		if (m_record_indicator_mode == 3 && isPseudoRecorded)
+		{
+			if (m_color_set[servicePseudoRecorded])
+				painter.setForegroundColor(m_color[servicePseudoRecorded]);
+			else
+				painter.setForegroundColor(gRGB(0x41b1ec));
+		}
+		if (m_record_indicator_mode == 3 && isStreamed)
+		{
+			if (m_color_set[serviceStreamed])
+				painter.setForegroundColor(m_color[serviceStreamed]);
+			else
+				painter.setForegroundColor(gRGB(0xf56712));
 		}
 		if (m_record_indicator_mode == 3 && isRecorded)
 		{
@@ -877,7 +885,7 @@ void eListboxServiceContent::paint(gPainter &painter, eWindowStyle &style, const
 							 * bit wider in case the icons are diffently
 							 * shaped, and to add a bit of margin between
 							 * icon and text. */
-							const int iconWidth = area.height() * 9 / 5;
+							const int iconWidth = (area.height() + m_service_picon_downsize * 2) * 1.67 + m_items_distances;
 							m_element_position[celServiceInfo].setLeft(area.left() + iconWidth);
 							m_element_position[celServiceInfo].setWidth(area.width() - iconWidth);
 							area = m_element_position[celServiceName];
@@ -887,7 +895,7 @@ void eListboxServiceContent::paint(gPainter &painter, eWindowStyle &style, const
 								area.moveBy(offset);
 								painter.clip(area);
 								painter.blitScale(piconPixmap,
-									eRect(area.left(), area.top(), iconWidth, area.height()),
+									eRect(area.left(), area.top() - m_service_picon_downsize, iconWidth, area.height() + m_service_picon_downsize * 2),
 									area,
 									gPainter::BT_ALPHABLEND | gPainter::BT_KEEP_ASPECT_RATIO);
 								painter.clippop();
@@ -1008,17 +1016,12 @@ void eListboxServiceContent::paint(gPainter &painter, eWindowStyle &style, const
 				if (pixmap)
 				{
 					eSize pixmap_size = pixmap->size();
-					eRect area;
-					if (e == celFolderPixmap || m_element_position[celServiceNumber].width() < pixmap_size.width())
-					{
-						area = m_element_position[celServiceName];
+					eRect area = m_element_position[e == celFolderPixmap ? celServiceName: celServiceNumber];
+					int correction = (area.height() - pixmap_size.height()) / 2;
+					if (e == celFolderPixmap)
 						if (m_element_position[celServiceEventProgressbar].left() == 0)
 							area.setLeft(0);
-						xoffset = pixmap_size.width() + m_items_distances;			
-					}
-					else
-						area = m_element_position[celServiceNumber];
-					int correction = (area.height() - pixmap_size.height()) / 2;
+						xoffset = pixmap_size.width() + m_items_distances;
 					area.moveBy(offset);
 					painter.clip(area);
 					painter.blit(pixmap, ePoint(area.left(), offset.y() + correction), area, gPainter::BT_ALPHABLEND);
