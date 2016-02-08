@@ -1,0 +1,108 @@
+<!--suppress XmlUnboundNsPrefix -->
+<wizard>
+		<step id="start" >
+			<text value="Please connect your %s %s to the internet" />
+			<displaytext value="Please connect your %s %s to the internet" />
+			<list>
+				<listentry caption="Check the internet connection" step="update" />
+				<listentry caption="Skip internet connection check (disables automatic package installation)" step="end" />
+			</list>
+			<code>
+self.clearSelectedKeys()
+self.selectKey("UP")
+self.selectKey("DOWN")
+			</code>
+		</step>
+		<step id="update">
+			<text value="Checking the internet connection" />
+			<displaytext value="Checking the internet connection" />
+			<config screen="InstallWizard" module="InstallWizard" args="0" type="ConfigList" />
+			<code>
+self.clearSelectedKeys()
+self.selectKey("OK")
+			</code>
+		</step>
+		<step id="networkfailed" >
+			<condition>
+self.condition = not config.misc.installwizard.ipkgloaded.value
+			</condition>
+			<text value="Your %s %s does not have an internet connection" />
+			<displaytext value="Your %s %s is not connected to the internet" />
+			<list>
+				<listentry caption="Check the internet connection again" step="update" />
+				<listentry caption="Skip internet connection check (disables automatic package installation)" step="pluginsetting" />
+			</list>
+			<code>
+self.clearSelectedKeys()
+self.selectKey("UP")
+self.selectKey("DOWN")
+			</code>
+		</step>
+		<step id="pluginsetting" nextstep="pluginmultiboot">
+			<condition>
+self.condition = config.misc.installwizard.hasnetwork.value and config.misc.installwizard.ipkgloaded.value
+			</condition>
+			<text value="Do you want to install a plugin for download channel list?" />
+			<displaytext value="Do you want to install a plugin for download channel list?" />
+			<config screen="InstallWizard" module="InstallWizard" args="2" type="ConfigList" />
+			<code>
+self.clearSelectedKeys()
+self.selectKey("LEFT")
+self.selectKey("RIGHT")
+			</code>
+		</step>
+		<step id="pluginmultiboot" nextstep="weather">
+			<condition>
+self.condition = config.misc.installwizard.hasnetwork.value and config.misc.installwizard.ipkgloaded.value
+			</condition>
+			<text value="Do you want to install a Multiboot plugin?" />
+			<displaytext value="Do you want to install a Multiboot plugin?" />
+			<config screen="InstallWizard" module="InstallWizard" args="3" type="ConfigList" />
+			<code>
+self.clearSelectedKeys()
+self.selectKey("LEFT")
+self.selectKey("RIGHT")
+			</code>
+		</step>
+		<step id="weather" nextstep="wifidriver">
+			<text value="Welcome to Weather setup.\n\nIn the next step insert your city for setting wheather in your %s %s.\nPress the OK button on your remote control to move to the next step." />
+			<displaytext value="Configure weather" />
+			<code pos="after">
+self.clearSelectedKeys()
+self.selectKey("OK")
+from ItalySat.ItalysatWeatherSearch import WeatherSearch
+self.session.open(WeatherSearch)
+			</code>
+		</step>
+        <step id="end">
+                <text value="Thank you for using the wizard.\nPlease press OK to continue." />
+                <code>
+self.clearSelectedKeys()
+self.selectKey("OK")
+                </code>
+        </step>
+		<step id="wifidriver">
+			<condition>
+			</condition>
+			<text value="Do you want remove a WiFi driver?" />
+			<displaytext value="Do you want remove a WiFi driver?" />
+			<list>
+				<listentry caption="No" step="end" />
+				<listentry caption="Yes" step="wifiremove" />
+			</list>
+		</step>
+		<step id="wifiremove" nextstep="end">
+			<text value="Please wait..." />
+			<displaytext value="Please wait..." />
+			<code>
+self.clearSelectedKeys()
+self.selectKey("OK")
+from os import system, popen
+from Screens.Console import Console
+cmd = "opkg remove --force-depends enigma2-plugin-drivers-network-usb-* ax88179-178a mt7601u mt7610u rt61 rt73 rt2870 rt3070 rt3573 rt5572 rt8723a rt8723bs rt8723bt rtl871x rtl8188eu rtl8192cu rtl8812au zd1211b kernel-module-ar5523 kernel-module-carl9170 kernel-module-usbnet kernel-module-asix kernel-module-ath9k-htc kernel-module-r8712u kernel-module-r8188eu kernel-module-rtl8192cu kernel-module-smsc75xx kernel-module-zd1211rw kernel-module-rt73usb kernel-module-rt5572sta kernel-module-rt5370sta kernel-module-rt3573sta kernel-module-rt2500usb kernel-module-rtl8187 kernel-module-rt2800usb kernel-module-8723au kernel-module-8812au kernel-module-8192cu kernel-module-mt7601usta kernel-module-ath kernel-module-ath9k-common kernel-module-ath9k-hw kernel-module-rt2800lib kernel-module-rt2x00lib kernel-module-rt2x00usb kernel-module-rtlwifi kernel-module-rtl8192c-common rt73-firmware firmware-ar5523 firmware-htc7010 firmware-htc9271 firmware-carl9170 firmware-rtl8712u firmware-rt2870 firmware-rt3070 firmware-rtl8188eu firmware-rtl8192cu firmware-zd1211 firmware-rt73"
+self.session.open(Console, title=_("WiFi Package Remove"), cmdlist=[cmd])
+self.markDone()
+self.close()
+			</code>
+		</step>
+</wizard>
